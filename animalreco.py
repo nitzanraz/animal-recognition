@@ -1,5 +1,4 @@
 import os
-#import os.path
 import sys
 import skimage.io
 import glob
@@ -11,6 +10,7 @@ import time
 import logging
 import re
 from shutil import copyfile
+#import pdb
 
 
 logging.basicConfig(filename='demo.log',level=10)
@@ -18,8 +18,6 @@ logging.basicConfig(filename='demo.log',level=10)
 animalDirectory = "Other"
 
 def check_results(groundTrue, output_path ):
- #   for dirpath, dirname, in os.walk(",");
-#
     outOtherFiles = glob.glob(output_path+'/'+animalDirectory+'/'+'*.JPG')
     outTrashyFiles = glob.glob(output_path+'/Trashy/'+'*.JPG')
     otherGroundTrueFiles = glob.glob(groundTrue+'/'+animalDirectory+'/'+'*.JPG')
@@ -95,7 +93,7 @@ def main():
             trn.ToTensor(),
             trn.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
-    #CenterCropList.append(centre_crop)
+    CenterCropList.append(centre_crop)
     centre_crop = trn.Compose([
             trn.ToPILImage(),
             trn.Scale(256),
@@ -109,7 +107,7 @@ def main():
             trn.ToPILImage(),
             trn.Scale(256),
             trn.CenterCrop(224),
-            trn.RandomHorizontalFlip(p=0.9),
+            trn.RandomHorizontalFlip(),
             trn.ToTensor(),
             trn.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
@@ -122,14 +120,10 @@ def main():
     print(len(files))
     th = 0.3
     found = 0
-    #import pdb;pdb.set_trace()
     for file_name in files:
-        #print("Working on {}".format(file_name))
         log.info("Working on {}".format(file_name))
         img = skimage.io.imread(file_name)
         t0 = time.time()
-        #x = V(centre_crop(img).unsqueeze(0), volatile=True)
-
         bestprob =0
         bestidx = 0
         for cc in CenterCropList:
@@ -156,7 +150,6 @@ def main():
         dest = os.path.join(dest,basename)
         copyfile(file_name,dest)
         pbs = ",".join(["{:.3f}".format(a0) for a0 in probs[:5]])
-        #d = ",".join(["{}".format(a0) for a0 in classes[idx[:5]]])
         print("{},{:.3f},{}".format(file_name[-10:],probs[0],classes[idx[0]]))
         for i in range(0, 2):
            print('{:.3f} -> {}'.format(probs[i], classes[idx[i]] ))
