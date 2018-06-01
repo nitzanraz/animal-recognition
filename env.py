@@ -61,6 +61,7 @@ def get_parser():
     parser.add_argument('--num_epochs2', default=10, type=int)
     parser.add_argument('--use_gpu', action='store_true')
     parser.add_argument('--resume', default='',type=str,metavar='PATH',help='path of last checkpoint')
+    parser.add_argument('--validation', action='store_true')
     parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                         metavar='LR', help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
@@ -275,10 +276,17 @@ if __name__ == '__main__':
     parser = get_parser()
     print("Parsing args")
     args = parser.parse_args()
-    print("setting env")
+
+
+    print("setting envi")
+    if args.resume:
     env = Environment(args)
-    for epoch in range(10):
-        print("Running epoch {}".format(epoch))
-        train_epoch(env.model, env.cnc_model, env.loss_fn, env.train_loader, env.optimizer, env.dtype)
+    if args.validation:
         check_accuracy(env.model,env.cnc_model,env.val_loader,env.dtype)
-        env.save_checkpoint("/tmp/checkpoint_{}.pkl".format(epoch))
+    else:
+        print("setting env")
+        for epoch in range(10):
+            print("Running epoch {}".format(epoch))
+            train_epoch(env.model, env.cnc_model, env.loss_fn, env.train_loader, env.optimizer, env.dtype)
+            check_accuracy(env.model,env.cnc_model,env.val_loader,env.dtype)
+            env.save_checkpoint("/tmp/checkpoint_{}.pkl".format(epoch))
