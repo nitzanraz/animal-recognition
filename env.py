@@ -279,11 +279,11 @@ def check_accuracy(smodel,model, loader, dtype, dset):
         #print(scoresall)
         for v in scoresall:
             for i in v:
-                #import pdb;
-                #pdb.set_trace()
+                import pdb;
+                pdb.set_trace()
                 #print("{}".format(i[0]))
                 #print(i.data.cpu().numpy()[0])
-                print(i.data.cpu().numpy()[1])
+                print(i.data.tolist()[0])
         break
     # Return the fraction of datapoints that were correctly classified.
     acc = float(num_correct) / num_samples
