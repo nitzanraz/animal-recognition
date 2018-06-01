@@ -9,7 +9,7 @@ from map_model import ClassNonClassModel
 import torchvision
 import torchvision.transforms as T
 from torchvision.datasets import ImageFolder
-
+import numpy as np
 """
 Example PyTorch script for finetuning a ResNet model on your own data.
 
@@ -144,8 +144,8 @@ class Environment(object):
             T.ToTensor(),
             T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
         ])
-        val_dset = ImageFolder(args.val_dir, transform=val_transform)
-        self.val_loader = DataLoader(val_dset,
+        self.val_dset = ImageFolder(args.val_dir, transform=val_transform)
+        self.val_loader = DataLoader(self.val_dset,
                                 batch_size=args.batch_size,
                                 num_workers=args.num_workers)
 
@@ -242,30 +242,49 @@ def train_epoch(smodel, model,loss_fn, loader, optimizer, dtype):
     print("finished {} batches".format(bnum))
 
 
-def check_accuracy(smodel,model, loader, dtype):
+def check_accuracy(smodel,model, loader, dtype, dset):
     """
     Check the accuracy of the model.
     """
     # Set the model to eval mode
     model.eval()
     num_correct, num_samples = 0, 0
+    #yall
+    #scoresall
+    #predsall
+    yall = list()
+    predsall=list()
+    scoresall =list()
+
     for x, y in loader:
     # Cast the image data to the correct type and wrap it in a Variable. At
     # test-time when we do not need to compute gradients, marking the Variable
     # as volatile can reduce memory usage and slightly improve speed.
         x_var = Variable(x.type(dtype), volatile=True)
 
-        # Run the model forward, and compare the argmax score with the ground-truth
+        # Run the model forward, and compare the argmax score with the ground-truthyall
         # category.
         x_var = smodel(x_var)
         scores = model(x_var)
         _, preds = scores.data.cpu().max(1)
-        # print(preds)
-        # import pdb
-        # import pdb;pdb.set_trace()
+        #import pdb
+        #import pdb;pdb.set_trace()
         num_correct += (preds == y).sum()
         num_samples += x.size(0)
-
+        print("one batch")
+        yall.append(y)
+        predsall.append(preds)
+        scoresall.append(scores)
+        #import pdb;pdb.set_trace()
+        #print(scoresall)
+        for v in scoresall:
+            for i in v:
+                #import pdb;
+                #pdb.set_trace()
+                #print("{}".format(i[0]))
+                #print(i.data.cpu().numpy()[0])
+                print(i.data.cpu().numpy()[1])
+        break
     # Return the fraction of datapoints that were correctly classified.
     acc = float(num_correct) / num_samples
     print("num_correct:" + str(num_correct) + ",num_samples:" + str(num_samples))
@@ -279,14 +298,16 @@ if __name__ == '__main__':
 
 
     print("setting envi")
-    if args.resume:
     env = Environment(args)
+    if args.resume:
+        env.resume(args.resume)
     if args.validation:
-        check_accuracy(env.model,env.cnc_model,env.val_loader,env.dtype)
+        print("validation only")
+        check_accuracy(env.model,env.cnc_model,env.val_loader,env.dtype,env.val_dset)
     else:
-        print("setting env")
+        print("training")
         for epoch in range(10):
             print("Running epoch {}".format(epoch))
             train_epoch(env.model, env.cnc_model, env.loss_fn, env.train_loader, env.optimizer, env.dtype)
-            check_accuracy(env.model,env.cnc_model,env.val_loader,env.dtype)
+            check_accuracy(env.model,env.cnc_model,env.val_loader,env.dtype,env.val_dset)
             env.save_checkpoint("/tmp/checkpoint_{}.pkl".format(epoch))
