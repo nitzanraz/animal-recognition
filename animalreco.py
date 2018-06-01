@@ -150,9 +150,9 @@ def main():
         dest = os.path.join(dest,basename)
         copyfile(file_name,dest)
         pbs = ",".join(["{:.3f}".format(a0) for a0 in probs[:5]])
-        print("{},{:.3f},{}".format(file_name[-10:],probs[0],classes[idx[0]]))
+        print("{},{:.3f},{},{}".format(file_name[-10:],probs[0],classes[idx[0]],idx[0]))
         for i in range(0, 2):
-           print('{:.3f} -> {}'.format(probs[i], classes[idx[i]] ))
+           print('{:.3f} -> {},{}'.format(probs[i], classes[idx[i]],idx[i] ))
         #log.info("took {} secs".format(time.time()-t0))
         #print("took {} secs".format(time.time()-t0))
     print("{}, {}".format("Found",found))

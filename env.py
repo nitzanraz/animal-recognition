@@ -5,7 +5,7 @@ import shutil
 import os
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-
+from mapmodel import ClassNonClassModel
 import torchvision
 import torchvision.transforms as T
 from torchvision.datasets import ImageFolder
@@ -104,7 +104,8 @@ class Environment(object):
           train_transform = T.Compose([
               #                 T.ToPILImage(),
               T.Scale(256),
-              T.CenterCrop(224),
+              T.RandomSizedCrop(224),
+              T.RandomHorizontalFlip(),
               T.ToTensor(),
               T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
           ])
@@ -152,17 +153,19 @@ class Environment(object):
       # First load the pretrained ResNet-18 model; this will download the model
       # weights from the web the first time you run it.
       self.model = torchvision.models.resnet18(pretrained=True)
+      self.cnc_model = ClassNonClassModel()
 
       # Reinitialize the last layer of the model. Each pretrained model has a
       # slightly different structure, but from the ResNet class definition
       # we see that the final fully-connected layer is stored in model.fc:
       # https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py#L111
-      self.num_classes = len(self.train_dset.classes)
-      self.model.fc = nn.Linear(self.model.fc.in_features, self.num_classes)
+      self.num_classes = self.model.fc.out_features
+      #self.model.fc = nn.Linear(self.model.fc.in_features, self.num_classes)
 
       # Cast the model to the correct datatype, and create a loss function for
       # training the model.
       self.model.type(self.dtype)
+      self.cnc_model.type(self.dtype)
       self.loss_fn = nn.CrossEntropyLoss().type(self.dtype)
 
     def init_optimizer(self,args):
@@ -171,13 +174,11 @@ class Environment(object):
         # other weights of the model, so we set the requires_grad flag to False for
         # all model parameters, then set requires_grad=True for the parameters in the
         # last layer only.
-        for param in self.model.parameters():
-            param.requires_grad = False
-        for param in self.model.fc.parameters():
+        for param in self.cnc_model.fc.parameters():
             param.requires_grad = True
         # Construct an Optimizer object for updating the last layer only.
         #optimizer = torch.optim.Adam(model.fc.parameters(), lr=1e-3)
-        self.optimizer = torch.optim.SGD(self.model.fc.parameters(), args.lr,
+        self.optimizer = torch.optim.SGD(self.cnc_model.fc.parameters(), args.lr,
                                     momentum=args.momentum,
                                     weight_decay=args.weight_decay)
 
@@ -207,11 +208,12 @@ class Environment(object):
 
 
 
-def train_epoch(model, loss_fn, loader, optimizer, dtype):
+def train_epoch(smodel, model,loss_fn, loader, optimizer, dtype):
   """
   Train the model for one epoch.
   """
   # Set the model to training mode
+  smodel.val()
   model.train()
   bnum = 0
   for x, y in loader:
@@ -226,6 +228,7 @@ def train_epoch(model, loss_fn, loader, optimizer, dtype):
     y_var = Variable(y.type(dtype).long())
 
     # Run the model forward to compute scores and loss.
+    x_var = smodel(x_var)
     scores = model(x_var)
     loss = loss_fn(scores, y_var)
 
@@ -236,7 +239,7 @@ def train_epoch(model, loss_fn, loader, optimizer, dtype):
     bnum +=1
     print("finished batch {}".format(bnum))
 
-def check_accuracy(model, loader, dtype):
+def check_accuracy(smodel,model, loader, dtype):
   """
   Check the accuracy of the model.
   """
@@ -251,6 +254,7 @@ def check_accuracy(model, loader, dtype):
 
     # Run the model forward, and compare the argmax score with the ground-truth
     # category.
+    x_var = smodel(x_var)
     scores = model(x_var)
     _, preds = scores.data.cpu().max(1)
     #print(preds)
@@ -268,4 +272,9 @@ def check_accuracy(model, loader, dtype):
 
 if __name__ == '__main__':
   args = parser.parse_args()
+  env = Environment(args)
+  for epoch in range(10):
+      train_epoch(env.model, env.cnc_model, env.loss_fn, env.train_loader, env.optimizer, env.dtype)
+      check_accuracy(env.model,env.cnc_model,env.val_loader,env.dtype)
+      
   main(args)
